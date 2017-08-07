@@ -63,6 +63,7 @@ for img in imnames:
     imdata = (im_clean - bias_med) / (flat_med - bias_med) * np.average(flat_med - bias_med)
     hdu = pyfits.PrimaryHDU(imdata)
     hdu.header = hdr
+    hdu.header['BZERO'] = 0
     hdu.writeto('clean_'+img.split('.')[0]+'.fits', clobber=True)
     #Find midpoint of galaxy
     mid = np.zeros(np.shape(imdata)[1])
@@ -87,20 +88,25 @@ for img in imnames:
     spectrum = stats.sigma_clip(spectrum, sigma=5)
 
     #Calibrate with sky lines (Monte Carlo)
-    wvs = [5889.953, 5895.923, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414]
-    pxl = [232, 251, 2347, 2423, 3358, 3554, 3640, 3736]
+    wvs = np.array([5889.953, 5895.923, 6257.961, 6287.434, 6329.840, 6498.729, 6533.044, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414])
+    pxl = np.array([232, 251, 1399, 1493, 1628, 2170, 2280, 2347, 2423, 3358, 3554, 3640, 3736])
     N = 1000
     x = np.arange(np.shape(imdata)[1])
     skl = np.zeros(len(wvs))
     mc = np.zeros(len(wvs)).astype(np.int64)
     mcl = np.zeros(len(wvs))
+    mcpoly = np.zeros((3, N))
     for n in range(N):
         for i in range(len(wvs)):
-            skl[i] = pxl[i]-10 + np.mean([np.argmax(imdata[int(ymid+20),pxl[i]-10:pxl[i]+10]), np.argmax(imdata[int(ymid-20),pxl[i]-10:pxl[i]+10])])
+            skl[i] = pxl[i]-10 + np.mean([np.argmax(imdata[int(ymid-60),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+60),pxl[i]-5:pxl[i]+5])])
             mc[i] = int(np.random.normal(skl[i], 4))
             mcl[i] = np.sum(spectrum[mc[i]-4:mc[i]+4]*x[mc[i]-4:mc[i]+4])/np.sum(spectrum[mc[i]-4:mc[i]+4])
-        mcp = np.poly1d(np.polyfit(mcl, wvs, 2))
-        wvx = mcp(x)
+        mcp = np.polyfit(mcl, wvs, 2)
+        mcpoly[0, n] = mcp[0]
+        mcpoly[1, n] = mcp[1]
+        mcpoly[2, n] = mcp[2]
+    mcpoly = np.poly1d(np.mean(mcpoly, axis=1))
+    wvx = mcpoly(x)
 
     final = np.array([wvx, spectrum])
 
@@ -110,13 +116,12 @@ for img in imnames:
     plt.ylabel('Flux (counts)')
     plt.plot(final[0], final[1])
     plt.show()
-
+    #
     # plt.figure()
     # plt.scatter(mcl, wvs)
     # plt.plot(x, wvx, label='fit')
     # plt.show()
-    # for i in range(len(wvs)):
-    #     print wvs[i] - mcp(mcl[i])
+    # print wvs[goodindex] - mcfixed(mcl[goodindex])
 
     hdu = pyfits.PrimaryHDU(final)
     hdu.header = hdr

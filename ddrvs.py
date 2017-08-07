@@ -47,7 +47,7 @@ for s in spectra:
 		y[i] = fluxarr[featlow+i]-cont(warr[featlow+i])
 	wide = LorentzianModel(prefix='wide_')
 	pars = wide.guess(y, x=x)
-	pars['wide_amplitude'].set(-200, max=-100)
+	pars['wide_amplitude'].set(-200, max=0)
 	if sys == 1:
 		rvs = np.zeros(len(spectra))
 		l1 = GaussianModel(prefix='l1_')
@@ -74,12 +74,12 @@ for s in spectra:
 		rvs = np.zeros((2, len(spectra)))
 		l1 = GaussianModel(prefix='l1_')
 		pars.update(l1.make_params())
-		pars['l1_center'].set(w-5, min=w-10, max=w+1)
+		pars['l1_center'].set(w-5, min=w-10, max=w+2)
 		pars['l1_sigma'].set(0.75, min=0.5, max=1.25)
 		pars['l1_amplitude'].set(-100, max=0)
 		l2 = GaussianModel(prefix='l2_')
 		pars.update(l2.make_params())
-		pars['l2_center'].set(w+5, min=w-1, max=w+10)
+		pars['l2_center'].set(w+5, min=w-2, max=w+10)
 		pars['l2_sigma'].set(0.25, min=0.1, max=0.75)
 		pars['l2_amplitude'].set(-100, max=0)
 		mod = wide+l1+l2
@@ -94,8 +94,8 @@ for s in spectra:
 		plt.plot(x, comps['wide_'], 'k--', label='wide')
 		plt.legend()
 		plt.show()
-		rv1a[n] = (out.params['l1_center']-w)/w*3e5
-		rv2a[n] = (out.params['l2_center']-w)/w*3e5
+		rv1a[n] = (out.params['l1_center']-out.params['wide_center'])/out.params['wide_center']*3e5
+		rv2a[n] = (out.params['l2_center']-out.params['wide_center'])/out.params['wide_center']*3e5
 	n += 1
 
 	date = specdata[0].header['DATE-OBS'].split('T')[0]
