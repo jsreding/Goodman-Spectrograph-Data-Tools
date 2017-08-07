@@ -9,6 +9,7 @@ from astropy import stats
 import matplotlib.pyplot as plt
 import lacosmic
 from collections import Counter
+from lmfit.models import GaussianModel
 
 ###################################################
 def object():
@@ -25,17 +26,17 @@ def medcomb(names):
     im_med = np.median(np.array(ims), axis=0)
     return im_med
 
-def norayjose(img):
+def norayjose(img, crt):
     print ''
     print 'Finding cosmic rays in ', img
     datalist = pyfits.open(img)
     data = np.float32(datalist[0].data)
     gain = datalist[0].header['GAIN'] #1.33 from 2017-06-07
     rdnoise = datalist[0].header['RDNOISE']
-    c = lacosmic.lacosmic(data, contrast=2, cr_threshold=30, neighbor_threshold=.5, readnoise=rdnoise, effective_gain=gain, maxiter=4)
+    c = lacosmic.lacosmic(data, contrast=2, cr_threshold=int(crt), neighbor_threshold=.5, readnoise=rdnoise, effective_gain=gain, maxiter=4)
     return c[0]
 ###################################################
-oldfiles = glob.glob('clean*.fits')
+oldfiles = glob.glob('clean*.fits')+glob.glob('spec*.fits')
 for o in oldfiles:
     os.remove(o)
 
@@ -50,14 +51,16 @@ flat_med = medcomb(flatnames)[:, 50:]
 imnames = glob.glob('*'+objname+'_'+grating+'.fits')
 imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
 pxscl = 0.15 #"/pix
+crt = raw_input("Cosmic Ray Threshold? ")
+
 if objname == 'WD_J2350':
     sumspec = []
     n = 0
 for img in imnames:
-    im_clean = norayjose(img)[:, 50:]
+    im_clean = norayjose(img, crt)[:, 50:]
     imdata = (im_clean - bias_med) / (flat_med - bias_med) * np.average(flat_med - bias_med)
     hdu = pyfits.PrimaryHDU(imdata)
-    hdu.writeto('clean_'+img.split('.')[0]+'_red.fits', clobber=True)
+    hdu.writeto('clean_'+img.split('.')[0]+'.fits', clobber=True)
     #Find midpoint of galaxy
     mid = np.zeros(np.shape(imdata)[1])
     for i in range(np.shape(imdata)[1]):
@@ -80,40 +83,37 @@ for img in imnames:
             spectrum[i] = np.sum(imdata[int(sp(i)-10):int(sp(i)+10), i] - sk(np.arange(20,40)))
     spectrum = stats.sigma_clip(spectrum, sigma=5)
 
+    #Calibrate with sky lines (Monte Carlo)
+    wvs = [5889.953, 5895.923, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414]
+    pxl = [232, 251, 2347, 2423, 3358, 3554, 3640, 3736]
+    N = 1000
+    x = np.arange(np.shape(imdata)[1])
+    skl = np.zeros(len(wvs))
+    mc = np.zeros(len(wvs)).astype(np.int64)
+    mcl = np.zeros(len(wvs))
+    for n in range(N):
+        for i in range(len(wvs)):
+            skl[i] = pxl[i]-10 + np.mean([np.argmax(imdata[int(ymid+20),pxl[i]-10:pxl[i]+10]), np.argmax(imdata[int(ymid-20),pxl[i]-10:pxl[i]+10])])
+            mc[i] = int(np.random.normal(skl[i], 4))
+            mcl[i] = np.sum(spectrum[mc[i]-4:mc[i]+4]*x[mc[i]-4:mc[i]+4])/np.sum(spectrum[mc[i]-4:mc[i]+4])
+        mcp = np.poly1d(np.polyfit(mcl, wvs, 2))
+        wvx = mcp(x)
+
+    final = np.array([wvx, spectrum])
+
     plt.figure()
-    plt.xlabel('Pixel')
-    plt.ylabel('Flux')
-    plt.plot(spectrum)
+    plt.title(img)
+    plt.xlabel('Wavelength (nm)')
+    plt.ylabel('Flux (counts)')
+    plt.plot(final[0], final[1])
     plt.show()
 
-#     #Extract lamp spectra
-#     hgarlist = glob.glob('*HgAr*.fits')
-#     if hgarlist != []:
-#         hgar = medcomb(hgarlist)[:, 50:]
-#         #Find line locations
-#         lx = np.arange(np.shape(hgar)[1])
-#         max1 = 3600 + np.argmax(hgarspec[3600:3900])
-#         hgar1 = np.sum(hgarspec[max1-4:max1+4]*lx[max1-4:max1+4])/np.sum(hgarspec[max1-4:max1+4])
-#         max2 = 4000 + np.argmax(hgarspec[4000:])
-#         hgar2 = np.sum(hgarspec[max2-4:max2+4]*lx[max2-4:max2+4])/np.sum(hgarspec[max2-4:max2+4])
-#         wavelengths = [696.54, 706.72]
-#         hgarlines = [hgar1, hgar2]
-#     else:
-#         print "No HgAr lamp calibration images found"
-#     felist = glob.glob('*Fe*.fits')
-#     if felist != []:
-#         fe = medcomb(felist)[:, 50:]
-#     else:
-#         print "No Fe lamp calibration images found"
-#
-#     if objname == 'WD_J2350':
-#         if n < 4:
-#             sumspec.append(spectrum)
-#         n += 1
-#
-# if objname == 'WD_J2350':
-#     sumspec = stats.sigma_clip(np.sum(np.array(sumspec), axis=0), sigma=5)
-#
-#     plt.figure()
-#     plt.plot(sumspec)
-#     plt.show()
+    # plt.figure()
+    # plt.scatter(mcl, wvs)
+    # plt.plot(x, wvx, label='fit')
+    # plt.show()
+    # for i in range(len(wvs)):
+    #     print wvs[i] - mcp(mcl[i])
+
+    hdu = pyfits.PrimaryHDU(final)
+    hdu.writeto('spec_'+img.split('.')[0]+'.fits', clobber=True)
