@@ -1,5 +1,5 @@
 ### Goodman Spectrograph image reduction and spectrum extraction (with cosmic ray removal)  ###
-###		Joshua Reding UNC-CH 7/27/17		###
+### Joshua Reding UNC-CH 7/27/17   ###
 
 import numpy as np
 import os
@@ -30,11 +30,12 @@ def norayjose(img, crt):
     print ''
     print 'Finding cosmic rays in ', img
     datalist = pyfits.open(img)
+    hdr = datalist[0].header
     data = np.float32(datalist[0].data)
-    gain = datalist[0].header['GAIN'] #1.33 from 2017-06-07
-    rdnoise = datalist[0].header['RDNOISE']
+    gain = hdr['GAIN'] #1.33 from 2017-06-07
+    rdnoise = hdr['RDNOISE']
     c = lacosmic.lacosmic(data, contrast=2, cr_threshold=int(crt), neighbor_threshold=.5, readnoise=rdnoise, effective_gain=gain, maxiter=4)
-    return c[0]
+    return c[0][:, 50:], hdr
 ###################################################
 oldfiles = glob.glob('clean*.fits')+glob.glob('spec*.fits')
 for o in oldfiles:
@@ -51,15 +52,17 @@ flat_med = medcomb(flatnames)[:, 50:]
 imnames = glob.glob('*'+objname+'_'+grating+'.fits')
 imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
 pxscl = 0.15 #"/pix
+print ""
 crt = raw_input("Cosmic Ray Threshold? ")
 
 if objname == 'WD_J2350':
     sumspec = []
     n = 0
 for img in imnames:
-    im_clean = norayjose(img, crt)[:, 50:]
+    im_clean, hdr = norayjose(img, crt)
     imdata = (im_clean - bias_med) / (flat_med - bias_med) * np.average(flat_med - bias_med)
     hdu = pyfits.PrimaryHDU(imdata)
+    hdu.header = hdr
     hdu.writeto('clean_'+img.split('.')[0]+'.fits', clobber=True)
     #Find midpoint of galaxy
     mid = np.zeros(np.shape(imdata)[1])
@@ -116,4 +119,6 @@ for img in imnames:
     #     print wvs[i] - mcp(mcl[i])
 
     hdu = pyfits.PrimaryHDU(final)
+    hdu.header = hdr
+    hdu.header['BZERO'] = 0
     hdu.writeto('spec_'+img.split('.')[0]+'.fits', clobber=True)
