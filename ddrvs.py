@@ -7,6 +7,8 @@ from lmfit.models import GaussianModel, LorentzianModel
 from scipy.optimize import leastsq
 import pyfits
 import glob
+from astropy.time import Time
+
 #########
 def systype():
 	sys = int(raw_input("Single- or double-lined system? [1 or 2]: "))
@@ -16,14 +18,14 @@ def systype():
 	else:
 		return sys
 #########
+
 sys = systype()
 spectra = glob.glob('spec*.fits')
 w = 6562.8518
 n = 0
-rv1a = np.zeros(len(spectra))
-rv1b = np.zeros(len(spectra))
-rv2a = np.zeros(len(spectra))
-rv2b = np.zeros(len(spectra))
+rv1 = np.zeros(len(spectra))
+rv2 = np.zeros(len(spectra))
+jd = np.zeros(len(spectra))
 for s in spectra:
 	specdata = pyfits.open(s)
 	fluxarr = specdata[0].data[1]
@@ -47,14 +49,15 @@ for s in spectra:
 		y[i] = fluxarr[featlow+i]-cont(warr[featlow+i])
 	wide = LorentzianModel(prefix='wide_')
 	pars = wide.guess(y, x=x)
-	pars['wide_amplitude'].set(-200, max=0)
+	pars['wide_center'].set(w, min=w-5, max=w+5)
+	pars['wide_amplitude'].set(-17000, max=0)
 	if sys == 1:
 		rvs = np.zeros(len(spectra))
 		l1 = GaussianModel(prefix='l1_')
 		pars.update(l1.make_params())
 		pars['l1_center'].set(w, min=w-10, max=w+10)
 		pars['l1_sigma'].set(0.5, min=.1)
-		pars['l1_amplitude'].set(-100, max=0)
+		pars['l1_amplitude'].set(-300, max=0)
 		mod = wide+l1
 		plt.figure()
 		plt.plot(x, y, label='data')
@@ -66,24 +69,23 @@ for s in spectra:
 		plt.plot(x, comps['wide_'], 'k--', label='wide')
 		plt.legend()
 		plt.show()
-		if w == labwavelength[0]:
-			rv1a[n] = (out.params['l1_center']-w)/w*3e5
-		if w == labwavelength[1]:
-			rv1b[n] = (out.params['l1_center']-w)/w*3e5
+		rv1[n] = (out.params['l1_center']-w)/w*3e5
 	if sys == 2:
 		rvs = np.zeros((2, len(spectra)))
 		l1 = GaussianModel(prefix='l1_')
 		pars.update(l1.make_params())
-		pars['l1_center'].set(w-5, min=w-10, max=w+2)
-		pars['l1_sigma'].set(0.75, min=0.5, max=1.25)
-		pars['l1_amplitude'].set(-100, max=0)
+		pars['l1_center'].set(w-3, min=w-5, max=w+1)
+		pars['l1_sigma'].set(0.75, min=0.25, max=1)
+		pars['l1_amplitude'].set(-300, max=-150)
 		l2 = GaussianModel(prefix='l2_')
 		pars.update(l2.make_params())
-		pars['l2_center'].set(w+5, min=w-2, max=w+10)
-		pars['l2_sigma'].set(0.25, min=0.1, max=0.75)
-		pars['l2_amplitude'].set(-100, max=0)
+		pars['l2_center'].set(w+3, min=w-1, max=w+5)
+		pars['l2_sigma'].set(0.5, min=0.2, max=.95)
+		pars['l2_amplitude'].set(-300, max=-150)
 		mod = wide+l1+l2
 		plt.figure()
+		plt.xlabel('Wavelength (A)')
+		plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
 		out = mod.fit(y, pars, x=x)
 		comps = out.eval_components(x=x)
@@ -94,22 +96,33 @@ for s in spectra:
 		plt.plot(x, comps['wide_'], 'k--', label='wide')
 		plt.legend()
 		plt.show()
-		rv1a[n] = (out.params['l1_center']-out.params['wide_center'])/out.params['wide_center']*3e5
-		rv2a[n] = (out.params['l2_center']-out.params['wide_center'])/out.params['wide_center']*3e5
-	n += 1
+		rv1[n] = (out.params['l1_center']-w)/w*3e5
+		rv2[n] = (out.params['l2_center']-w)/w*3e5
 
-	date = specdata[0].header['DATE-OBS'].split('T')[0]
-	y, m, d = date.split('-')
-	time = specdata[0].header['DATE-OBS'].split('T')[1]
-	h, m, s = time.split(':')
+	time = specdata[0].header['DATE-OBS']
+	t = Time(time, format='isot', scale='utc')
+	jd[n] = t.jd - 2450000
+
+	n += 1
 
 
 if sys == 1:
 	for r in range(len(spectra)):
-		rvs[r] = np.mean([rv1a[r], rv1b[r]])
+		rvs[r] = rv1[r]
+	print "RV1 = ", rvs[:]
+	print "JD = ", jd
 if sys == 2:
 	for r in range(len(spectra)):
-		rvs[0, r] = np.mean([rv1a[r], rv1b[r]])
-		rvs[1, r] = np.mean([rv2a[r], rv2b[r]])
-print "RV1 = ", rvs[0, :]
-print "RV2 = ", rvs[1, :]
+		rvs[0, r] = rv1[r]
+		rvs[1, r] = rv2[r]
+	print "RV1 = ", rvs[0, :]
+	print "RV2 = ", rvs[1, :]
+	print "JD = ", jd
+
+	plt.figure()
+	plt.xlabel('JD - 2450000')
+	plt.ylabel('RV (km/s)')
+	plt.scatter(jd, rvs[0, :], label='rv1')
+	plt.scatter(jd, rvs[1, :], label='rv2')
+	plt.legend()
+	plt.show()

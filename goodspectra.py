@@ -46,7 +46,7 @@ print "Finding spectra for "+objname+" taken with "+grating+"-line grating..."
 
 biasnames = glob.glob('*Zero*.fits')
 bias_med = medcomb(biasnames)[:, 50:]
-flatnames = glob.glob('*QuartzFlat*.fits')
+flatnames = glob.glob('*Flat*.fits')
 flat_med = medcomb(flatnames)[:, 50:]
 
 imnames = glob.glob('*'+objname+'_'+grating+'.fits')
