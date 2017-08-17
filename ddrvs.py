@@ -24,17 +24,28 @@ def maxrv():
 	mxrv = int(raw_input("Maximum expected RV: "))
 	mxshift = mxrv/3e5*w
 	print "Maximum expected wavelength shift =", mxshift
-	return mxshift
+	return mxshift, mxrv
+
+def onclick(event):
+	global c
+	global h
+	c.append(event.xdata)
+	h.append(event.ydata)
+	if len(c) == 2:
+		plt.close()
 #########
 
 sys = systype()
-mxshift = maxrv()
+mxshift, mxrv = maxrv()
 spectra = glob.glob('spec*.fits')
 n = 0
-rv1 = np.zeros(len(spectra))
-rv2 = np.zeros(len(spectra))
-jd = np.zeros(len(spectra))
+rv1 = []
+rv2 = []
+rv = []
+jd = []
+imnum = np.zeros(len(spectra))
 for s in spectra:
+	imnum[n] = int(s.split('_')[1])
 	specdata = pyfits.open(s)
 	fluxarr = specdata[0].data[1]
 	warr = specdata[0].data[0]
@@ -51,13 +62,13 @@ for s in spectra:
 	x = warr[featlow:feathigh]
 	ycont = np.array(np.ndarray.tolist(fluxarr[contlowa:contlowb])+np.ndarray.tolist(fluxarr[conthigha:conthighb]))
 	xcont = np.array(np.ndarray.tolist(warr[contlowa:contlowb])+np.ndarray.tolist(warr[conthigha:conthighb]))
-	cont = np.poly1d(np.polyfit(xcont, ycont, 3))
+	cont = np.poly1d(np.polyfit(xcont, ycont, 1))
 	y = np.zeros(feathigh-featlow)
 	for i in range(len(y)):
 		y[i] = fluxarr[featlow+i]-cont(warr[featlow+i])
 	wide = LorentzianModel(prefix='wide_')
 	pars = wide.guess(y, x=x)
-	pars['wide_center'].set(w, min=w-5, max=w+5)
+	pars['wide_center'].set(w, min=w-10, max=w+10)
 	pars['wide_amplitude'].set(-17000, max=0)
 	if sys == 1:
 		rvs = np.zeros(len(spectra))
@@ -79,79 +90,109 @@ for s in spectra:
 		plt.show()
 		rv1[n] = (out.params['l1_center']-w)/w*3e5
 	if sys == 2:
-		rvs = np.zeros((2, len(spectra)))
 		l1 = GaussianModel(prefix='l1_')
 		pars.update(l1.make_params())
-		pars['l1_center'].set(w-mxshift/2, min=w-mxshift, max=w+mxshift)
-		pars['l1_sigma'].set(1, min=0.5, max=1.25)
-		pars['l1_amplitude'].set(-300, max=-150)
-		l2 = GaussianModel(prefix='l2_')
-		pars.update(l2.make_params())
-		pars['l2_center'].set(w+mxshift/2, min=w-mxshift, max=w+mxshift)
-		pars['l2_sigma'].set(0.75, min=0.5, max=1)
-		pars['l2_amplitude'].set(-300, max=-150)
-		mod = wide+l1+l2
-		# plt.figure()
+		c = []
+		h = []
+		fig = plt.figure()
 		# plt.xlabel('Wavelength (A)')
 		# plt.ylabel('Flux (counts)')
-		# plt.plot(x, y, label='data')
+		plt.plot(x, y, label='data')
+		plt.xlim(6540, 6580)
+		plt.title(s)
+		cid = fig.canvas.mpl_connect('button_press_event', onclick)
+		plt.show()
+		pars['l1_center'].set(c[0], min=c[0]-0.5, max=c[0]+0.5)
+		pars['l1_sigma'].set(0.3, min=0.2, max=0.5)
+		pars['l1_amplitude'].set(h[0], max=-50)
+		# pars['l1_height'].set(max=-200)
+		l2 = GaussianModel(prefix='l2_')
+		pars.update(l2.make_params())
+		pars['l2_center'].set(c[1], min=c[1]-0.5, max=c[1]+0.5)
+		pars['l2_sigma'].set(0.3, min=0.2, max=0.5)
+		pars['l2_amplitude'].set(h[1], max=-50)
+		# pars['l2_height'].set(max=-200)
+		mod = wide+l1+l2
 		out = mod.fit(y, pars, x=x)
 		comps = out.eval_components(x=x)
 		print(out.fit_report(min_correl=0.5))
-		# plt.xlim(6540, 6585)
-		# plt.plot(x, out.best_fit, 'r-', label='best fit')
-		# # plt.plot(x, comps['l1_'], 'b--', label='line1')
-		# # plt.plot(x, comps['l2_'], 'b--', label='line2')
-		# # plt.plot(x, comps['wide_'], 'k--', label='wide')
-		# plt.legend()
-		# plt.show()
-		rv1[n] = (out.params['l1_center']-w)/w*3e5
-		rv2[n] = (out.params['l2_center']-w)/w*3e5
-
-	time = specdata[0].header['DATE-OBS']
-	t = Time(time, format='isot', scale='utc')
-	jd[n] = t.jd
-
+		plt.figure()
+		plt.xlabel('Wavelength (A)')
+		plt.ylabel('Flux (counts)')
+		plt.plot(x, y, label='data')
+		plt.xlim(6540, 6580)
+		plt.title(s)
+		plt.plot(x, out.best_fit, 'r-', label='best fit')
+		# plt.plot(x, comps['l1_'], 'b--', label='line1')
+		# plt.plot(x, comps['l2_'], 'b--', label='line2')
+		# plt.plot(x, comps['wide_'], 'k--', label='wide')
+		plt.legend()
+		plt.show()
+		r1 = (out.params['l1_center']-w)/w*3e5
+		r2 = (out.params['l2_center']-w)/w*3e5
+		if abs(out.params['l1_amplitude']) > abs(out.params['l2_amplitude']):
+			rv1.append(r1)
+			rv2.append(r2)
+			rv.append(r1-r2)
+		else:
+			rv1.append(r2)
+			rv2.append(r1)
+			rv.append(r2-r1)
+		time = specdata[0].header['DATE-OBS']
+		t = Time(time, format='isot', scale='utc')
+		jd.append(t.jd-2450000.)
 	n += 1
 
-
 if sys == 1:
-	for r in range(len(spectra)):
+	for r in range(len(rv)):
 		rvs[r] = rv1[r]
 	print "RV1 = ", rvs[:]
-	print "JD = ", jd
+	print "JD-2450000 = ", jd
 if sys == 2:
-	for r in range(len(spectra)):
-		rvs[0, r] = rv1[r]
-		rvs[1, r] = rv2[r]
-	print "RV1 = ", rvs[0, :]
-	print "RV2 = ", rvs[1, :]
+	jd = np.array(jd)
+	rv = np.array(rv)
+	rv1 = np.array(rv1)
+	rv2 = np.array(rv2)
+	print "RV1 = ", rv1
+	print "RV2 = ", rv2
+	print "RV = ", rv
 	print "JD = ", jd
 
-	freq = np.linspace(2*np.pi/0.3, 2*np.pi/10, 1000)
-	pgram1 = scipy.signal.lombscargle(jd, rvs[0, :], freq)
-	mx1 = np.argmax(pgram1)
-	pgram2 = scipy.signal.lombscargle(jd, rvs[1, :], freq)
-	mx2 = np.argmax(pgram2)
-	bestper1 = 2*np.pi/freq[mx1]
-	bestper2 = 2*np.pi/freq[mx2]
-	print bestper1, bestper2
-	phase1 = np.fmod(jd, bestper1)
-	phase2 = np.fmod(jd, bestper2)
+	t = np.linspace(jd[0], jd[-1], 10000)
+	freq = np.linspace(2*np.pi/0.1, 2*np.pi/10, 10000)
+	normval = len(jd)
+	pgram = scipy.signal.lombscargle(jd, rv, freq)
+	mx = np.argmax(pgram)
+	# pgram2 = scipy.signal.lombscargle(jd, rv2, freq)
+	# mx2 = np.argmax(pgram2)
+	bestper = 2*np.pi/freq[mx]
+	# bestper2 = 2*np.pi/freq[mx2]
+	# print bestper1, bestper2
+	print bestper
+	phase = np.fmod(t, bestper)
+	# phase2 = np.fmod(t, bestper2)
+	eqn1 = np.zeros(len(t))
+	eqn2 = np.zeros(len(t))
+	for e in range(len(t)):
+		eqn1[e] = mxrv*np.sin(freq[mx]*t[e])
+		eqn2[e] = -mxrv*np.sin(freq[mx]*t[e])
 
 	plt.figure()
-	plt.title('RV')
-	plt.ylabel('RV (km/s)')
-	plt.xlabel('Phase')
-	plt.plot(freq, pgram1)
-	# plt.scatter(phase1, rvs[0, :], label='RV1')
-	# plt.scatter(phase2, rvs[1, :], label='RV2')
+	plt.title('Lomb-Scargle Periodogram')
+	plt.ylabel('Power')
+	plt.xlabel('Period (days)')
+	plt.plot(2*np.pi/freq, np.sqrt(4*(pgram/normval)))
+	# plt.plot(2*np.pi/freq, np.sqrt(4*(pgram2/normval)), label='2')
+	# plt.legend()
 	plt.show()
 
-	# plt.figure()
-	# plt.xlabel('JD - 2450000')
-	# plt.ylabel('RV (km/s)')
-	# plt.scatter(jd, rvs[0, :], label='rv1')
-	# plt.scatter(jd, rvs[1, :], label='rv2')
-	# plt.legend()
-	# plt.show()
+	plt.figure()
+	plt.xlabel('JD (-2450000)')
+	plt.ylabel('RV (km/s)')
+	plt.plot(t, eqn1, label='fit1')
+	plt.plot(t, eqn2, label='fit2')
+	plt.scatter(jd, rv1, label='rv1')
+	plt.scatter(jd, rv2, label='rv2')
+	plt.scatter(jd, rv, label=r'$\Delta RV$')
+	plt.legend()
+	plt.show()

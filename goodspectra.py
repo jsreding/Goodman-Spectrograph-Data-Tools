@@ -88,8 +88,8 @@ for img in imnames:
     spectrum = stats.sigma_clip(spectrum, sigma=5)
 
     #Calibrate with sky lines (Monte Carlo)
-    wvs = np.array([5889.953, 5895.923, 6257.961, 6287.434, 6329.840, 6498.729, 6533.044, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414])
-    pxl = np.array([232, 251, 1399, 1493, 1628, 2170, 2280, 2347, 2423, 3358, 3554, 3640, 3736])
+    wvs = np.array([5889.953, 5895.923, 6257.961, 6287.434, 6300.304, 6306.925, 6329.840, 6498.729, 6533.044, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414])
+    pxl = np.array([232, 251, 1399, 1493, 1534, 1555, 1628, 2170, 2280, 2347, 2423, 3358, 3554, 3640, 3736])
     N = 1000
     x = np.arange(np.shape(imdata)[1])
     skl = np.zeros(len(wvs))
@@ -116,12 +116,13 @@ for img in imnames:
     plt.ylabel('Flux (counts)')
     plt.plot(final[0], final[1])
     plt.show()
-    #
-    # plt.figure()
-    # plt.scatter(mcl, wvs)
-    # plt.plot(x, wvx, label='fit')
-    # plt.show()
-    # print wvs[goodindex] - mcfixed(mcl[goodindex])
+
+    plt.figure()
+    plt.scatter(mcl, wvs, label='sky lines')
+    plt.plot(x, wvx, label='fit')
+    plt.legend()
+    plt.show()
+    print wvs - mcpoly(mcl)
 
     hdu = pyfits.PrimaryHDU(final)
     hdu.header = hdr
