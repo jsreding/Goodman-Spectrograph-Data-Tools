@@ -5,7 +5,7 @@ ha = 6562.8518
 shift = 0.547
 snr = np.array([30, 50, 70])
 
-wv = np.arange(ha-120, ha+120, 0.15)
+wv = np.arange(ha-120, ha+120, 0.31)
 
 whwhm = 30
 gsigma = 0.5
