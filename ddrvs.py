@@ -64,10 +64,10 @@ for s in spectra:
 	y = np.zeros(feathigh-featlow)
 	for i in range(len(y)):
 		y[i] = (fluxarr[featlow+i]-cont(warr[featlow+i]))/cont(warr[featlow+i])
-	#Set the error as photon noise, generate fake spectrum
+	#Set the error as photon noise
 	gain = specdata[0].header['GAIN']
 	fluxerr = np.sqrt(abs(y)*gain)/gain
-	fspec = np.random.normal(loc=y, scale=fluxerr, size=len(y))
+
 	wide = LorentzianModel(prefix='wide_')
 	pars = wide.guess(y, x=x)
 	pars['wide_center'].set(w, min=w-10, max=w+10)
@@ -82,7 +82,6 @@ for s in spectra:
 		mod = wide+l1
 		plt.figure()
 		plt.plot(x, y, label='data')
-		# plt.plot(x, fspec, label='fake data')
 		out = mod.fit(y, pars, x=x)
 		comps = out.eval_components(x=x)
 		print(out.fit_report(min_correl=0.5))
@@ -98,10 +97,9 @@ for s in spectra:
 		c = []
 		h = []
 		fig = plt.figure()
-		# plt.xlabel('Wavelength (A)')
-		# plt.ylabel('Flux (counts)')
+		plt.xlabel('Wavelength (A)')
+		plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
-		# plt.plot(x, fspec, label='fakedata')
 		plt.legend()
 		plt.xlim(6540, 6580)
 		plt.title(s)
@@ -125,7 +123,6 @@ for s in spectra:
 		plt.xlabel('Wavelength (A)')
 		plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
-		# plt.plot(x, fspec, label='fake data')
 		plt.xlim(6540, 6580)
 		plt.title(s)
 		plt.plot(x, out.best_fit, 'r-', label='best fit')
