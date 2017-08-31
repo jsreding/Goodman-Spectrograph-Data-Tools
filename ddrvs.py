@@ -49,8 +49,6 @@ for s in spectra:
 	specdata = pyfits.open(s)
 	fluxarr = specdata[0].data[1]
 	warr = specdata[0].data[0]
-	#Set the error as photon noise
-	fluxerr = np.sqrt(abs(fluxarr)*1.4)/1.4
 	#Define continuum and feature ranges
 	contlowa = np.argmax(warr > (w - 180.))
 	contlowb = np.argmax(warr > (w - 130.))
@@ -62,10 +60,14 @@ for s in spectra:
 	x = warr[featlow:feathigh]
 	ycont = np.array(np.ndarray.tolist(fluxarr[contlowa:contlowb])+np.ndarray.tolist(fluxarr[conthigha:conthighb]))
 	xcont = np.array(np.ndarray.tolist(warr[contlowa:contlowb])+np.ndarray.tolist(warr[conthigha:conthighb]))
-	cont = np.poly1d(np.polyfit(xcont, ycont, 1))
+	cont = np.poly1d(np.polyfit(xcont, ycont, 2))
 	y = np.zeros(feathigh-featlow)
 	for i in range(len(y)):
-		y[i] = fluxarr[featlow+i]-cont(warr[featlow+i])
+		y[i] = (fluxarr[featlow+i]-cont(warr[featlow+i]))/cont(warr[featlow+i])
+	#Set the error as photon noise, generate fake spectrum
+	gain = specdata[0].header['GAIN']
+	fluxerr = np.sqrt(abs(y)*gain)/gain
+	fspec = np.random.normal(loc=y, scale=fluxerr, size=len(y))
 	wide = LorentzianModel(prefix='wide_')
 	pars = wide.guess(y, x=x)
 	pars['wide_center'].set(w, min=w-10, max=w+10)
@@ -76,10 +78,11 @@ for s in spectra:
 		pars.update(l1.make_params())
 		pars['l1_center'].set(w, min=w-10, max=w+10)
 		pars['l1_sigma'].set(0.5, min=.1)
-		pars['l1_amplitude'].set(-300, max=0)
+		pars['l1_amplitude'].set(-.3, max=0)
 		mod = wide+l1
 		plt.figure()
 		plt.plot(x, y, label='data')
+		# plt.plot(x, fspec, label='fake data')
 		out = mod.fit(y, pars, x=x)
 		comps = out.eval_components(x=x)
 		print(out.fit_report(min_correl=0.5))
@@ -98,19 +101,21 @@ for s in spectra:
 		# plt.xlabel('Wavelength (A)')
 		# plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
+		# plt.plot(x, fspec, label='fakedata')
+		plt.legend()
 		plt.xlim(6540, 6580)
 		plt.title(s)
 		cid = fig.canvas.mpl_connect('button_press_event', onclick)
 		plt.show()
 		pars['l1_center'].set(c[0], min=c[0]-0.5, max=c[0]+0.5)
 		pars['l1_sigma'].set(0.3, min=0.2, max=0.5)
-		pars['l1_amplitude'].set(h[0], max=-50)
+		pars['l1_amplitude'].set(h[0], max=0)
 		# pars['l1_height'].set(max=-200)
 		l2 = GaussianModel(prefix='l2_')
 		pars.update(l2.make_params())
 		pars['l2_center'].set(c[1], min=c[1]-0.5, max=c[1]+0.5)
 		pars['l2_sigma'].set(0.3, min=0.2, max=0.5)
-		pars['l2_amplitude'].set(h[1], max=-50)
+		pars['l2_amplitude'].set(h[1], max=0)
 		# pars['l2_height'].set(max=-200)
 		mod = wide+l1+l2
 		out = mod.fit(y, pars, x=x)
@@ -120,6 +125,7 @@ for s in spectra:
 		plt.xlabel('Wavelength (A)')
 		plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
+		# plt.plot(x, fspec, label='fake data')
 		plt.xlim(6540, 6580)
 		plt.title(s)
 		plt.plot(x, out.best_fit, 'r-', label='best fit')
@@ -163,14 +169,9 @@ if sys == 2:
 	normval = len(jd)
 	pgram = scipy.signal.lombscargle(jd, rv, freq)
 	mx = np.argmax(pgram)
-	# pgram2 = scipy.signal.lombscargle(jd, rv2, freq)
-	# mx2 = np.argmax(pgram2)
 	bestper = 2*np.pi/freq[mx]
-	# bestper2 = 2*np.pi/freq[mx2]
-	# print bestper1, bestper2
 	print bestper
 	phase = np.fmod(t, bestper)
-	# phase2 = np.fmod(t, bestper2)
 	eqn1 = np.zeros(len(t))
 	eqn2 = np.zeros(len(t))
 	for e in range(len(t)):
@@ -182,8 +183,6 @@ if sys == 2:
 	plt.ylabel('Power')
 	plt.xlabel('Period (days)')
 	plt.plot(2*np.pi/freq, np.sqrt(4*(pgram/normval)))
-	# plt.plot(2*np.pi/freq, np.sqrt(4*(pgram2/normval)), label='2')
-	# plt.legend()
 	plt.show()
 
 	plt.figure()
