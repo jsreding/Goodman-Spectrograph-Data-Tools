@@ -15,7 +15,7 @@ from lmfit.models import GaussianModel
 def object():
     obj = raw_input("Prefix (e.g. WD): ")
     name = raw_input("RA (e.g. 0037): ")
-    objname = obj+'_'+name
+    objname = obj+name #obj+'_'+name
     grating = raw_input("Grating (e.g. 1200): ")
     return objname, grating
 
@@ -49,15 +49,12 @@ bias_med = medcomb(biasnames)[:, 50:]
 flatnames = glob.glob('*Flat*.fits')
 flat_med = medcomb(flatnames)[:, 50:]
 
-imnames = glob.glob('*'+objname+'_'+grating+'.fits')
-imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
+imnames = glob.glob('comb*'+objname+'_'+grating+'*.fits')
+#imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
 pxscl = 0.15 #"/pix
 print ""
 crt = raw_input("Cosmic Ray Threshold? ")
 
-if objname == 'WD_J2350':
-    sumspec = []
-    n = 0
 for img in imnames:
     im_clean, hdr = norayjose(img, crt)
     imdata = (im_clean - bias_med) / (flat_med - bias_med) * np.average(flat_med - bias_med)
@@ -116,13 +113,13 @@ for img in imnames:
     plt.ylabel('Flux (counts)')
     plt.plot(final[0], final[1])
     plt.show()
-
-    plt.figure()
-    plt.scatter(mcl, wvs, label='sky lines')
-    plt.plot(x, wvx, label='fit')
-    plt.legend()
-    plt.show()
-    print wvs - mcpoly(mcl)
+    #
+    # plt.figure()
+    # plt.scatter(mcl, wvs, label='sky lines')
+    # plt.plot(x, wvx, label='fit')
+    # plt.legend()
+    # plt.show()
+    # print wvs - mcpoly(mcl)
 
     hdu = pyfits.PrimaryHDU(final)
     hdu.header = hdr

@@ -43,9 +43,7 @@ rv1 = []
 rv2 = []
 rv = []
 jd = []
-imnum = np.zeros(len(spectra))
 for s in spectra:
-	imnum[n] = int(s.split('_')[1])
 	specdata = pyfits.open(s)
 	fluxarr = specdata[0].data[1]
 	warr = specdata[0].data[0]
@@ -102,18 +100,19 @@ for s in spectra:
 		plt.plot(x, y, label='data')
 		plt.legend()
 		plt.xlim(6540, 6580)
+		plt.ylim(-0.65, -0.1)
 		plt.title(s)
 		cid = fig.canvas.mpl_connect('button_press_event', onclick)
 		plt.show()
-		pars['l1_center'].set(c[0], min=c[0]-0.5, max=c[0]+0.5)
-		pars['l1_sigma'].set(0.3, min=0.2, max=0.5)
-		pars['l1_amplitude'].set(h[0], max=0)
+		pars['l1_center'].set(c[0], min=c[0]-1, max=c[0]+1)
+		pars['l1_sigma'].set(0.5, min=0.3, max=1)
+		pars['l1_amplitude'].set(-0.3, max=0)
 		# pars['l1_height'].set(max=-200)
 		l2 = GaussianModel(prefix='l2_')
 		pars.update(l2.make_params())
-		pars['l2_center'].set(c[1], min=c[1]-0.5, max=c[1]+0.5)
-		pars['l2_sigma'].set(0.3, min=0.2, max=0.5)
-		pars['l2_amplitude'].set(h[1], max=0)
+		pars['l2_center'].set(c[1], min=c[1]-1, max=c[1]+1)
+		pars['l2_sigma'].set(0.5, min=0.3, max=1)
+		pars['l2_amplitude'].set(-0.3, max=0)
 		# pars['l2_height'].set(max=-200)
 		mod = wide+l1+l2
 		out = mod.fit(y, pars, x=x)
@@ -123,6 +122,7 @@ for s in spectra:
 		plt.xlabel('Wavelength (A)')
 		plt.ylabel('Flux (counts)')
 		plt.plot(x, y, label='data')
+		plt.ylim(-0.65, -0.1)
 		plt.xlim(6540, 6580)
 		plt.title(s)
 		plt.plot(x, out.best_fit, 'r-', label='best fit')
@@ -131,8 +131,9 @@ for s in spectra:
 		# plt.plot(x, comps['wide_'], 'k--', label='wide')
 		plt.legend()
 		plt.show()
-		r1 = (out.params['l1_center']-w)/w*3e5
-		r2 = (out.params['l2_center']-w)/w*3e5
+		r1 = (out.params['l1_center']-out.params['wide_center'])/out.params['wide_center']*3e5
+		r2 = (out.params['l2_center']-out.params['wide_center'])/out.params['wide_center']*3e5
+		print np.average([r1, r2])
 		if abs(out.params['l1_amplitude']) > abs(out.params['l2_amplitude']):
 			rv1.append(r1)
 			rv2.append(r2)
@@ -162,7 +163,8 @@ if sys == 2:
 	print "JD = ", jd
 
 	t = np.linspace(jd[0], jd[-1], 10000)
-	freq = np.linspace(2*np.pi/0.1, 2*np.pi/10, 10000)
+	tp = np.linspace(7955, 8005, 10000)
+	freq = np.linspace(2*np.pi/0.5, 2*np.pi/10, 10000)
 	normval = len(jd)
 	pgram = scipy.signal.lombscargle(jd, rv, freq)
 	mx = np.argmax(pgram)
@@ -171,9 +173,9 @@ if sys == 2:
 	phase = np.fmod(t, bestper)
 	eqn1 = np.zeros(len(t))
 	eqn2 = np.zeros(len(t))
-	for e in range(len(t)):
-		eqn1[e] = mxrv*np.sin(freq[mx]*t[e])
-		eqn2[e] = -mxrv*np.sin(freq[mx]*t[e])
+	for e in range(len(tp)):
+		eqn1[e] = abs(rv).max()*np.sin(freq[mx]*tp[e])
+		# eqn2[e] = -abs(rv).max()*np.sin(freq[mx]*t[e])
 
 	plt.figure()
 	plt.title('Lomb-Scargle Periodogram')
@@ -183,12 +185,13 @@ if sys == 2:
 	plt.show()
 
 	plt.figure()
+	plt.title(r'$\Delta$RV between large and small H$\alpha$ peaks')
 	plt.xlabel('JD (-2450000)')
-	plt.ylabel('RV (km/s)')
-	plt.plot(t, eqn1, label='fit1')
-	plt.plot(t, eqn2, label='fit2')
-	plt.scatter(jd, rv1, label='rv1')
-	plt.scatter(jd, rv2, label='rv2')
+	plt.ylabel(r'$\Delta$RV (km/s)')
+	plt.plot(tp, eqn1, label='fit')
+	# plt.plot(t, eqn2, label='fit2')
+	# plt.scatter(jd, rv1, label='rv')
+	# plt.scatter(jd, rv2, label='rv2')
 	plt.scatter(jd, rv, label=r'$\Delta RV$')
 	plt.legend()
 	plt.show()
