@@ -15,7 +15,7 @@ from lmfit.models import GaussianModel
 def object():
     obj = raw_input("Prefix (e.g. WD): ")
     name = raw_input("RA (e.g. 0037): ")
-    objname = obj+name #obj+'_'+name
+    objname = obj+'_'+name
     grating = raw_input("Grating (e.g. 1200): ")
     return objname, grating
 
@@ -49,8 +49,8 @@ bias_med = medcomb(biasnames)[:, 50:]
 flatnames = glob.glob('*Flat*.fits')
 flat_med = medcomb(flatnames)[:, 50:]
 
-imnames = glob.glob('comb*'+objname+'_'+grating+'*.fits')
-#imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
+imnames = glob.glob('*'+objname+'_'+grating+'.fits')
+imnames = sorted(imnames, key=lambda imsa: int(imsa.split('_')[0]))
 pxscl = 0.15 #"/pix
 print ""
 crt = raw_input("Cosmic Ray Threshold? ")
