@@ -95,9 +95,26 @@ for img in imnames:
     mcpoly = np.zeros((3, N))
     for n in range(N):
         for i in range(len(wvs)):
-            skl[i] = pxl[i]-10 + np.mean([np.argmax(imdata[int(ymid-60),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+60),pxl[i]-5:pxl[i]+5])])
-            mc[i] = int(np.random.normal(skl[i], 4))
-            mcl[i] = np.sum(spectrum[mc[i]-4:mc[i]+4]*x[mc[i]-4:mc[i]+4])/np.sum(spectrum[mc[i]-4:mc[i]+4])
+            l = GaussianModel(prefix='l_')
+            pars = l.guess(imdata[int(ymid-60), pxl[i]-5:pxl[i]+5], x=x[pxl[i]-5:pxl[i]+5])
+            pars.update(l.make_params())
+            pars['l_center'].set(pxl[i], min=pxl[i]-5, max=pxl[i]+5)
+            pars['l_sigma'].set(0.5, min=.1, max = 1)
+            pars['l_amplitude'].set(100)
+            mod = l
+            plt.plot(x[pxl[i]-5:pxl[i]+5], spectrum[pxl[i]-5:pxl[i]+5], label='data')
+            out = mod.fit(imdata[int(ymid-60), pxl[i]-5:pxl[i]+5], pars, x=x[pxl[i]-5:pxl[i]+5])
+            comps = out.eval_components(x=x[pxl[i]-5:pxl[i]+5])
+            print(out.fit_report(min_correl=0.5))
+            plt.plot(x[pxl[i]-5:pxl[i]+5], out.best_fit, 'r-', label='best fit')
+            plt.plot(x[pxl[i]-5:pxl[i]+5], comps['l_'], 'b--', label='line')
+            plt.legend()
+            plt.show()
+            # skl[i] = pxl[i]-10 +
+            # pos = [np.argmax(imdata[int(ymid-60),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+60),pxl[i]-5:pxl[i]+5])]
+            # print pos
+            # mc[i] = int(np.random.normal(skl[i], 4))
+            # mcl[i] = np.sum(spectrum[mc[i]-4:mc[i]+4]*x[mc[i]-4:mc[i]+4])/np.sum(spectrum[mc[i]-4:mc[i]+4])
         mcp = np.polyfit(mcl, wvs, 2)
         mcpoly[0, n] = mcp[0]
         mcpoly[1, n] = mcp[1]
