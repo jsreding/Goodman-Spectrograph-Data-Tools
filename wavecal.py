@@ -52,7 +52,7 @@ elif setup == '1200Ca':
 else:
     print "Setup not recognized"
     quit()
-#Central wavelength
+    
 print "Grating angle:", grang
 print "Camera angle:", camang
 cwv = np.sin(grang*np.pi/180)*20000000/gr
@@ -100,5 +100,5 @@ print lines[0]
 #This value 'loc' will be the average y-position of the science object in the data image
 for loc in np.linspace(80, 120, 5):
     pixlocs = lines[1] + loc*lines[0]
-    wavesol = np.poly1d(np.polyfit(pixlocs+50, wvs, 3))
+    wavesol = np.poly1d(np.polyfit(pixlocs, wvs, 3))
     print wavesol
