@@ -76,13 +76,13 @@ arcdata = (arcdata[:,50:-50] - bias)/(flat - bias) * np.average(flat-bias)
 # hdu = pyfits.PrimaryHDU(arcdata)
 # hdu.writeto('clean_blue.fits', clobber=True)
 
-#Fe line typical pixel locations and wavelengths, by setup (adjusted for readout cutoff)
-shift = np.argmax(arcdata[100,1257:1357])-50
-#This line is at least 50 pix from the next bright one
-fepxsb = np.array([372., 379., 1121., 1307., 1370., 1384., 1464., 1470., 1609., 1638., 1652., 1705., 1784., 1818., 2204., 2285., 2439., 2554., 2718., 2739., 2808., 3084.])+shift
-fewvsb = np.array([3734.8636, 3737.1313, 4045.8130, 4131.7235, 4158.5905, 4164.1795, 4198.3036, 4200.6745, 4259.3619, 4271.7593, 4277.5282, 4300.1008, 4333.5612, 4348.064, 4510.7332, 4545.0519, 4609.5673, 4657.9012, 4726.8683, 4735.9058, 4764.8648, 4879.8635])
-
 x = np.arange(np.shape(arcdata)[1])
+#This line is at least 50 pix from the next bright one
+shift = int(arcgauss(100, 1257+np.argmax(arcdata[100,1257:1357]))-1307)
+#Fe line typical pixel locations and wavelengths, by setup (adjusted for readout cutoff)
+fepxsb = np.array([1121., 1307., 1370., 1384., 1609., 1638., 1652., 1705., 1784., 1818., 2204., 2285., 2439., 2739., 2808., 3084.])+shift
+fewvsb = np.array([4045.8130, 4131.7235, 4158.5905, 4164.1795, 4259.3619, 4271.7593, 4277.5282, 4300.1008, 4333.5612, 4348.064, 4510.7332, 4545.0519, 4609.5673, 4735.9058, 4764.8648, 4879.8635])
+
 if setup == '930B':
     pxs, wvs = fepxsb, fewvsb
 elif setup == '930R':
@@ -96,8 +96,9 @@ for l in range(len(pxs)):
         n += 1
     lines[0][l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[0]
     lines[1][l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[1]
+print lines[0]
 #This value 'loc' will be the average y-position of the science object in the data image
 for loc in np.linspace(80, 120, 5):
     pixlocs = lines[1] + loc*lines[0]
-    wavesol = np.poly1d(np.polyfit(pixlocs, wvs, 3))+50
+    wavesol = np.poly1d(np.polyfit(pixlocs+50, wvs, 3))
     print wavesol
