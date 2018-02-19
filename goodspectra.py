@@ -16,8 +16,8 @@ def object():
     obj = raw_input("Prefix (e.g. WD): ")
     name = raw_input("RA (e.g. 0037): ")
     objname = obj+'_'+name
-    grating = raw_input("Grating (e.g. 1200): ")
-    return objname, grating
+    setup = raw_input("Setup [930B, 930R, 1200Ha, 1200Ca]: ")
+    return objname, setup
 
 def medcomb(names):
     ims = []
@@ -36,13 +36,33 @@ def norayjose(img, crt):
     rdnoise = hdr['RDNOISE']
     c = lacosmic.lacosmic(data, contrast=2, cr_threshold=int(crt), neighbor_threshold=.5, readnoise=rdnoise, effective_gain=gain, maxiter=4)
     return c[0][:, 50:], hdr
+
+def arcgauss(r, p):
+    p = int(p)
+    r = int(r)
+    l = GaussianModel(prefix='l_')
+    pars = l.guess(arcdata[r, p-5:p+5], x=x[p-5:p+5])
+    pars.update(l.make_params())
+    pars['l_center'].set(p, min=p-5, max=p+5)
+    pars['l_sigma'].set(0.5, max=np.sqrt(3))
+    pars['l_amplitude'].set(50, min=0)
+    mod = l
+    # plt.plot(x[p-5:p+5], arcdata[r, p-5:p+5], label='data')
+    out = mod.fit(arcdata[r, p-5:p+5], pars, x=x[p-5:p+5])
+    comps = out.eval_components(x=x[p-5:p+5])
+    # print(out.fit_report(min_correl=0.5))
+    # plt.plot(x[p-5:p+5], out.best_fit, 'r-', label='best fit')
+    # plt.plot(x[p-5:p+5], comps['l_'], 'b--', label='line')
+    # plt.legend()
+    # plt.show()
+    return out.params['l_center']
 ###################################################
 oldfiles = glob.glob('clean*.fits')+glob.glob('spec*.fits')
 for o in oldfiles:
     os.remove(o)
 
-objname, grating = object()
-print "Finding spectra for "+objname+" taken with "+grating+"-line grating..."
+objname, setup = object()
+print "Finding spectra for "+objname+" taken in "+setup+"setup..."
 
 biasnames = glob.glob('*Zero*.fits')
 bias_med = medcomb(biasnames)[:, 50:]
@@ -85,40 +105,7 @@ for img in imnames:
     spectrum = stats.sigma_clip(spectrum, sigma=5)
 
     #Calibrate with sky lines (Monte Carlo)
-    wvs = np.array([5889.953, 5895.923, 6257.961, 6287.434, 6300.304, 6306.925, 6329.840, 6498.729, 6533.044, 6553.617, 6577.285, 6863.955, 6923.220, 6949.045, 6978.414])
-    pxl = np.array([232, 251, 1399, 1493, 1534, 1555, 1628, 2170, 2280, 2347, 2423, 3358, 3554, 3640, 3736])
-    N = 1000
-    x = np.arange(np.shape(imdata)[1])
-    skl = np.zeros(len(wvs))
-    mc = np.zeros(len(wvs)).astype(np.int64)
-    mcl = np.zeros(len(wvs))
-    mcpoly = np.zeros((3, N))
-    for n in range(N):
-        for i in range(len(wvs)):
-            l = GaussianModel(prefix='l_')
-            pars = l.guess(imdata[int(ymid-60), pxl[i]-5:pxl[i]+5], x=x[pxl[i]-5:pxl[i]+5])
-            pars.update(l.make_params())
-            pars['l_center'].set(pxl[i], min=pxl[i]-5, max=pxl[i]+5)
-            pars['l_sigma'].set(0.5, min=.1, max = 1)
-            pars['l_amplitude'].set(100)
-            mod = l
-            plt.plot(x[pxl[i]-5:pxl[i]+5], spectrum[pxl[i]-5:pxl[i]+5], label='data')
-            out = mod.fit(imdata[int(ymid-60), pxl[i]-5:pxl[i]+5], pars, x=x[pxl[i]-5:pxl[i]+5])
-            comps = out.eval_components(x=x[pxl[i]-5:pxl[i]+5])
-            print(out.fit_report(min_correl=0.5))
-            plt.plot(x[pxl[i]-5:pxl[i]+5], out.best_fit, 'r-', label='best fit')
-            plt.plot(x[pxl[i]-5:pxl[i]+5], comps['l_'], 'b--', label='line')
-            plt.legend()
-            plt.show()
-            # skl[i] = pxl[i]-10 +
-            # pos = [np.argmax(imdata[int(ymid-60),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid-20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+20),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+40),pxl[i]-5:pxl[i]+5]), np.argmax(imdata[int(ymid+60),pxl[i]-5:pxl[i]+5])]
-            # print pos
-            # mc[i] = int(np.random.normal(skl[i], 4))
-            # mcl[i] = np.sum(spectrum[mc[i]-4:mc[i]+4]*x[mc[i]-4:mc[i]+4])/np.sum(spectrum[mc[i]-4:mc[i]+4])
-        mcp = np.polyfit(mcl, wvs, 2)
-        mcpoly[0, n] = mcp[0]
-        mcpoly[1, n] = mcp[1]
-        mcpoly[2, n] = mcp[2]
+
     mcpoly = np.poly1d(np.mean(mcpoly, axis=1))
     wvx = mcpoly(x)
 
