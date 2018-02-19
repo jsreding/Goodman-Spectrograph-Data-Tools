@@ -87,18 +87,17 @@ if setup == '930B':
     pxs, wvs = fepxsb, fewvsb
 elif setup == '930R':
     pxs, wvs = fepxsr, fewvsr
-lnslopes = np.zeros(len(pxs))
-lnints = np.zeros(len(pxs))
+lines = np.zeros((2, len(pxs)))
 for l in range(len(pxs)):
     n = 0
     lc = np.zeros(20)
     for y in np.linspace(10, 199, 20):
         lc[n] = arcgauss(y, pxs[l])
         n += 1
-    lnslopes[l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[0]
-    lnints[l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[1]
+    lines[0][l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[0]
+    lines[1][l] = np.polyfit([int(p) for p in np.linspace(10, 199, 20)], lc, 1)[1]
 #This value 'loc' will be the average y-position of the science object in the data image
 for loc in np.linspace(80, 120, 5):
-    pixlocs = lnints + loc*lnslopes
+    pixlocs = lines[1] + loc*lines[0]
     wavesol = np.poly1d(np.polyfit(pixlocs, wvs, 3))+50
     print wavesol
