@@ -100,5 +100,5 @@ for l in range(len(pxs)):
 #This value 'loc' will be the average y-position of the science object in the data image
 for loc in np.linspace(80, 120, 5):
     pixlocs = lnints + loc*lnslopes
-    wavesol = np.poly1d(np.polyfit(pixlocs, wvs, 3))
+    wavesol = np.poly1d(np.polyfit(pixlocs, wvs, 3))+50
     print wavesol
