@@ -9,7 +9,7 @@ lines = f.readlines()
 objname = lines[0].split(' ')[1]+lines[0].split(' ')[2]
 time = np.zeros(len(lines)-1)
 flux = np.zeros(len(lines)-1)
-if 'go' in sys.argv[1] == True:
+if 'go' in sys.argv[1]:
     unc = np.zeros(len(lines)-1)
 i = 0
 for l in lines[1:]:
@@ -20,12 +20,14 @@ for l in lines[1:]:
         unc[i] = float(data[2])
     i += 1
 
-freq = np.linspace(2*np.pi*.1e-6, 2*np.pi*310.e-6, 10000)
+harm = np.array([n*47.2042e-6 for n in np.arange(7)])
+freq = np.linspace(2*np.pi*1e-8, 2*np.pi*310.e-6, 10000)
 ft = abs(nufft.nufft1d3(time, flux, freq))
-fq = freq[ft[35:].argmax()+35]/(2*np.pi)
-per = 1/fq/86400
-# print "Highest peak:", bestper/86400, "days, ", freq[mx]*1000000, "microHertz"
-# phase = np.fmod(time, bestper)
+ft = np.ma.masked_where(freq/(2*np.pi) <= 1.286e-6, ft) #1.1574074074074074e-6
+for h in harm:
+    ft = np.ma.masked_where((h-0.25e-6 < freq/(2*np.pi)) & (freq/(2*np.pi) < h+0.25e-6), ft)
+fq = freq[ft.argmax()]/(2*np.pi)
+per = 1/fq/86400.
 
 fig = plt.figure()
 ax1 = fig.add_subplot(311)
@@ -34,21 +36,32 @@ ax1.set_title(objname)
 ax1.set_ylabel('Rel. Flux (%)')
 ax1.set_xlabel('Time (days)')
 ax1.set_xlim([0, 80])
-if 'go' in sys.argv[1] == True:
+if 'go' in sys.argv[1]:
     ax1.errorbar(time/86400., flux, yerr=unc, fmt='o', linestyle="None", ms=2)
 else:
-    ax1.scatter(time/86400., flux)
+    ax1.scatter(time/86400., flux, s=2)
 ax2 = fig.add_subplot(312)
 ax2.minorticks_on()
 ax2.text(0.65, 0.9,r'Highest Peak: $%s days (%s ppt), %s \mu Hz$'%(np.round(per, 3), np.round(ft[35:].max()*20, 3), np.round(fq*1e6, 3)), horizontalalignment='center', verticalalignment='center', transform=ax2.transAxes, fontsize=14)
 ax2.set_ylabel('Amplitude (ppt)')
 ax2.set_xlabel(r'Possible frequencies ($\mu Hz$)')
 ax2.set_xlim([0, 310])
-ax2.plot(freq*1000000/(2*np.pi), ft*20)
+ax2.scatter(fq*1e6, ft.max()*20, marker="*", s=100, color='Green')
+ax2.plot(freq*1e6/(2*np.pi), ft*20)
+ax2.axvspan(0, 1.25, alpha=0.5, color='red')
+for h in harm:
+    ax2.axvspan(h*1e6-.25, h*1e6+.25, alpha=0.5, color='red')
 ax3 = fig.add_subplot(313)
 ax3.minorticks_on()
 ax3.set_ylabel('Amplitude (ppt)')
 ax3.set_xlabel(r'Possible frequencies ($\mu Hz$)')
-ax3.set_xlim([0, 50])
-ax3.plot(freq*1000000/(2*np.pi), ft*20)
+if fq*1e6 < 25:
+    ax3.set_xlim([0, 50])
+else:
+    ax3.set_xlim([fq*1e6-25, fq*1e6+25])
+ax3.scatter(fq*1e6, ft.max()*20, marker="*", s=100, color='Green')
+ax3.plot(freq*1e6/(2*np.pi), ft*20)
+ax3.axvspan(0, 1.25, alpha=0.5, color='red')
+for h in harm:
+    ax3.axvspan(h*1e6-.25, h*1e6+.25, alpha=0.5, color='red')
 plt.show()
