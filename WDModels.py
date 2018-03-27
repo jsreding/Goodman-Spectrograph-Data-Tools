@@ -2,6 +2,10 @@ import numpy as np
 import csv
 import sys
 
+def find_nearest(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return array[idx]
+
 teff = []
 logg = []
 M = []
@@ -11,27 +15,30 @@ u = []
 g = []
 r = []
 age = []
+ug = []
+gr = []
 i = 0
-with open(sys.argv[1]) as f:
-    reader = csv.DictReader(f)
+with open(sys.argv[1], 'rb') as f:
+    reader = csv.DictReader(f, delimiter=' ')
     for row in reader:
-        print row
-        teff.append(row[''Teff'])
-        logg.append(row['log g'])
-        M.append(row['M/Mo'])
-        mbol.append(row['Mbol'])
-        bc.append(row['BC'])
-        u.append(row['u'])
-        g.append(row['g'])
-        r.append(row['r'])
-        age.append(row['Age'])
+        teff.append(float(row['Teff']))
+        logg.append(float(row['log g']))
+        M.append(float(row['M/Mo']))
+        mbol.append(float(row['Mbol']))
+        bc.append(float(row['BC']))
+        u.append(float(row['u']))
+        g.append(float(row['g']))
+        r.append(float(row['r']))
+        age.append(float(row['Age']))
+        ug.append(float(row['u']) - float(row['g']))
+        gr.append(float(row['g']) - float(row['r']))
 
-print 'Teff =', teff
-print 'log g =', logg
-print 'M/Mo =', M
-print 'Mbol =', mbol
-print 'BC =', bc
-print 'u =', u
-print 'g =', g
-print 'r =', r
-print 'Age =', age
+# print 'Teff =', teff
+# print 'log g =', logg
+# print 'M/Mo =', M
+# print 'Mbol =', mbol
+# print 'BC =', bc
+# print 'u =', u
+# print 'g =', g
+# print 'r =', r
+# print 'Age =', age
